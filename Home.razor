@@ -1,0 +1,245 @@
+﻿
+@page "/"
+@using System.Net.Http.Json
+@using System.Text.Json.Serialization
+@inject HttpClient Http
+
+<PageTitle>BlazorPokeApi - Pokédex</PageTitle>
+
+<div class="container-pokemon">
+    <h1>Pokédex</h1>
+    <p class="subtitulo">Pesquise seu Pokémon favorito!</p>
+
+    <div class="pesquisa">
+        <input @bind="nomePesquisa"
+               @bind:event="oninput"
+               @onkeydown="VerificarTecla"
+               placeholder="Digite o nome do Pokémon..."
+               aria-label="Nome do Pokémon" />
+
+        <button @onclick="BuscarPokemon" disabled="@carregando">
+            @(carregando ? "Buscando..." : "Buscar")
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(erro))
+    {
+        <div class="erro">@erro</div>
+    }
+
+    @if (carregando)
+    {
+        <p class="mensagem">Carregando Pokémon...</p>
+    }
+
+    @if (pokemon is not null)
+    {
+        <div class="cartao-pokemon">
+            @if (!string.IsNullOrWhiteSpace(pokemon.Sprites?.Imagem))
+            {
+                <img src="@pokemon.Sprites.Imagem"
+                     alt="@pokemon.Nome"
+                     class="imagem-pokemon" />
+            }
+            else
+            {
+                <p>Imagem não disponível para este Pokémon.</p>
+            }
+
+            <h2>@pokemon.Nome.ToUpperInvariant()</h2>
+
+            <div class="dados">
+                <p><strong>ID:</strong> @pokemon.Id</p>
+                <p><strong>Nome:</strong> @pokemon.Nome</p>
+                <p><strong>Altura:</strong> @((pokemon.Altura / 10.0).ToString("0.0")) m</p>
+                <p><strong>Peso:</strong> @((pokemon.Peso / 10.0).ToString("0.0")) kg</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string nomePesquisa = "ditto";
+    private Pokemon? pokemon;
+    private string erro = "";
+    private bool carregando;
+
+    private async Task VerificarTecla(
+        Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await BuscarPokemon();
+        }
+    }
+
+    private async Task BuscarPokemon()
+    {
+        erro = "";
+        pokemon = null;
+
+        if (string.IsNullOrWhiteSpace(nomePesquisa))
+        {
+            erro = "Digite o nome de um Pokémon.";
+            return;
+        }
+
+        carregando = true;
+
+        try
+        {
+            string nome = Uri.EscapeDataString(nomePesquisa.Trim().ToLowerInvariant());
+
+            pokemon = await Http.GetFromJsonAsync<Pokemon>(
+                $"https://pokeapi.co/api/v2/pokemon/{nome}");
+
+            if (pokemon is null)
+            {
+                erro = "Não foi possível encontrar esse Pokémon.";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            erro = "Não foi possível conectar à PokéAPI. Verifique sua internet.";
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            erro = "Não foi possível interpretar os dados recebidos da API.";
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+
+    public class Pokemon
+    {
+        [JsonPropertyName("id")]
+        public int Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Nome { get; set; } = "";
+
+        [JsonPropertyName("height")]
+        public int Altura { get; set; }
+
+        [JsonPropertyName("weight")]
+        public int Peso { get; set; }
+
+        [JsonPropertyName("sprites")]
+        public SpritesPokemon? Sprites { get; set; }
+    }
+
+    public class SpritesPokemon
+    {
+        [JsonPropertyName("front_default")]
+        public string? Imagem { get; set; }
+    }
+}
+
+<style>
+    .container-pokemon {
+        max-width: 600px;
+        margin: 35px auto;
+        padding: 25px;
+        text-align: center;
+        font-family: Arial, sans-serif;
+    }
+
+    .container-pokemon h1 {
+        color: #d62828;
+        font-size: 38px;
+        margin-bottom: 5px;
+    }
+
+    .subtitulo {
+        color: #666;
+        margin-bottom: 25px;
+    }
+
+    .pesquisa {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .pesquisa input {
+        flex: 1;
+        min-width: 0;
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 16px;
+    }
+
+    .pesquisa button {
+        padding: 12px 20px;
+        background: #d62828;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    .pesquisa button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+    }
+
+    .cartao-pokemon {
+        background: #f5f5f5;
+        border-radius: 16px;
+        padding: 25px;
+        box-shadow: 0 4px 12px #00000015;
+    }
+
+    .imagem-pokemon {
+        width: 180px;
+        height: 180px;
+        object-fit: contain;
+        image-rendering: pixelated;
+    }
+
+    .cartao-pokemon h2 {
+        color: #333;
+        margin: 10px 0 20px;
+    }
+
+    .dados {
+        text-align: left;
+        max-width: 280px;
+        margin: auto;
+    }
+
+    .dados p {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .erro {
+        color: #b00020;
+        background: #ffebee;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 15px 0;
+    }
+
+    .mensagem {
+        margin: 20px;
+    }
+
+    @@media (max-width: 480px) {
+        .container-pokemon {
+            padding: 12px;
+        }
+
+        .pesquisa {
+            flex-direction: column;
+        }
+
+        .pesquisa button {
+            padding: 14px;
+        }
+    }
+</style>
